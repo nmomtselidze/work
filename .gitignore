@@ -4,3 +4,7 @@ SDML_pro/*.pt
 # Build artifacts and large model weights
 target/
 *.pt
+
+# Rust build artifacts and PyTorch checkpoints
+target/
+*.pt
