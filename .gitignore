@@ -1,2 +1,6 @@
 harness2_engineering/target/
 SDML_pro/*.pt
+
+# Build artifacts and large model weights
+target/
+*.pt
