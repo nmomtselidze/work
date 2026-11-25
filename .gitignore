@@ -1,4 +1,19 @@
-projects/API_KEY.md
-projects/MaxAI.md
-projects/gp.mod
-projects/uobj.json
+harness2_engineering/target/
+SDML_pro/*.pt
+<<<<<<< HEAD
+
+# Build artifacts and large model weights
+target/
+*.pt
+
+# Rust build artifacts and PyTorch checkpoints
+target/
+*.pt
+
+# Rust build artifacts and PyTorch checkpoints
+target/
+*.pt
+=======
+**/.env
+.env*
+>>>>>>> feature/initial-monowork

@@ -405,3 +405,230 @@ func (a *MetricsAgent) Execute(ctx context.Context, input interface{}) (interfac
 ```
 
 This ML example demonstrates how the multi-agent graph system can handle complex machine learning workflows with parallel model training, hyperparameter tuning, and automated model selection.
+-----------------------------------------------
+user@user:/media/user/dsk64/monowork/nexus$ ./multi-agent-graph cicd --parallel
+
+
+
+=== DAG Structure ===
+
+Nodes: 8
+
+Edges: 12
+
+
+
+Nodes:
+
+- test_macos (Unit Tests (macOS)) [test]
+
+- test_integration (Integration Tests) [test]
+
+- security_scan (Security Scan) [security_scan]
+
+- lint (Code Linting) [lint]
+
+- deploy_staging (Deploy to Staging) [deploy]
+
+- build (Build Application) [build]
+
+- test_linux (Unit Tests (Linux)) [test]
+
+- test_windows (Unit Tests (Windows)) [test]
+
+
+
+Edges:
+
+- build -> test_linux (weight: 1.0)
+
+- build -> test_windows (weight: 1.0)
+
+- build -> test_macos (weight: 1.0)
+
+- build -> test_integration (weight: 1.0)
+
+- build -> security_scan (weight: 1.0)
+
+- build -> lint (weight: 1.0)
+
+- test_linux -> deploy_staging (weight: 1.0)
+
+- test_windows -> deploy_staging (weight: 1.0)
+
+- test_macos -> deploy_staging (weight: 1.0)
+
+- test_integration -> deploy_staging (weight: 1.0)
+
+- security_scan -> deploy_staging (weight: 1.0)
+
+- lint -> deploy_staging (weight: 1.0)
+
+
+
+Root Nodes:
+
+- build
+
+
+
+Leaf Nodes:
+
+- deploy_staging
+
+
+
+Topological Order:
+
+1. build
+
+2. test_linux
+
+3. test_windows
+
+4. test_macos
+
+5. test_integration
+
+6. security_scan
+
+7. lint
+
+8. deploy_staging
+
+====================
+
+2026/11/24 16:49:40 Starting parallel workflow execution with 8 nodes
+
+2026/11/24 16:49:40 Executing node: build (Build Application)
+
+2026/11/24 16:49:40 Node build completed successfully
+
+2026/11/24 16:49:40 Executing node: test_linux (Unit Tests (Linux))
+
+2026/11/24 16:49:40 Executing node: lint (Code Linting)
+
+2026/11/24 16:49:40 Executing node: test_integration (Integration Tests)
+
+2026/11/24 16:49:40 Executing node: test_windows (Unit Tests (Windows))
+
+2026/11/24 16:49:40 Executing node: security_scan (Security Scan)
+
+2026/11/24 16:49:40 Executing node: test_macos (Unit Tests (macOS))
+
+2026/11/24 16:49:40 Node lint completed successfully
+
+2026/11/24 16:49:40 Node security_scan completed successfully
+
+2026/11/24 16:49:40 Node test_integration completed successfully
+
+2026/11/24 16:49:40 Node test_linux completed successfully
+
+2026/11/24 16:49:40 Node test_macos completed successfully
+
+2026/11/24 16:49:40 Node test_windows completed successfully
+
+2026/11/24 16:49:40 Executing node: deploy_staging (Deploy to Staging)
+
+2026/11/24 16:49:40 Node deploy_staging completed successfully
+
+2026/11/24 16:49:40 Parallel workflow execution completed
+
+
+
+=== CI/CD Pipeline Results ===
+
+Build:
+
+Status: SUCCESS
+
+Artifact ID: artifact-1795524580
+
+Binary Path: /builds/Build Agent/app-binary
+
+Build Time: 201.138353ms
+
+
+
+Test Results:
+
+linux: PASSED (100/100 passed, 85.5% coverage)
+
+windows: PASSED (100/100 passed, 85.5% coverage)
+
+macos: PASSED (100/100 passed, 85.5% coverage)
+
+linux: PASSED (100/100 passed, 85.5% coverage)
+
+Overall: ALL TESTS PASSED
+
+
+
+Security Scan:
+
+Status: SUCCESS
+
+Vulnerabilities: 2 (Critical: 0, High: 1, Medium: 1, Low: 0)
+
+Scan Time: 120.727492ms
+
+
+
+Lint:
+
+Status: SUCCESS
+
+Issues Found: 5 (Warnings: 3, Errors: 0)
+
+Lint Time: 80.091541ms
+
+
+
+Deployment:
+
+Status: SUCCESS
+
+Environment: staging
+
+Version: v1.0.1795524580
+
+URL: https://staging.example.com
+
+Deploy Time: 101.172921ms 
+
+Running ./multi-agent-graph cicd --parallel executed an 8-node CI/CD pipeline structured as a Directed Acyclic Graph (DAG), running independent test and analysis tasks concurrently before deploying to a staging environment.
+
+1. Pipeline Architecture (Fan-Out / Fan-In)
+The workflow defines 8 nodes connected by 12 dependency edges, organized into three sequential phases:
+
+Phase 1 — Build (Root): build compiles the application first, as all downstream tasks depend on its output artifact.
+
+Phase 2 — Parallel Verification (Fan-Out): Six independent tasks branch off build and run simultaneously:
+
+Cross-platform unit tests (test_linux, test_windows, test_macos)
+
+Integration tests (test_integration)
+
+Static analysis (security_scan and lint)
+
+Phase 3 — Deployment (Leaf / Fan-In): deploy_staging acts as a synchronization barrier, waiting until all six Phase 2 nodes succeed before executing.
+
+2. Execution Flow
+Because the --parallel flag was passed, the engine executed the DAG in concurrency waves rather than following the strict 1-through-8 topological list:
+
+Sequential start: build ran and completed first.
+
+Concurrent execution: All six verification nodes launched at the exact same timestamp (16:49:40) and completed out of order based on execution speed (lint finished first in ~80 ms; test_windows finished last).
+
+Final deployment: Once the final verification node (test_windows) succeeded, deploy_staging triggered and completed the workflow.
+
+3. Pipeline Results & Notable Details
+All eight nodes reported SUCCESS (likely using simulated/mocked agent runners given the sub-second execution times):
+
+Build: Produced artifact-1795524580 at /builds/Build Agent/app-binary in 201.14 ms.
+
+Tests: All suites passed (100/100, 85.5% coverage). Notably, linux is printed twice in the test summary—the test_integration node reported its platform label as linux rather than integration.
+
+Security & Linting: The security scan flagged 2 vulnerabilities (1 High, 1 Medium) and the linter flagged 3 warnings, but neither failed the build. Both stages are configured as non-blocking unless critical vulnerabilities or lint errors occur.
+
+Deployment: Released version v1.0.1795524580 to [https://staging.example.com](https://staging.example.com) in 101.17 ms.

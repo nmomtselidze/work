@@ -1,0 +1,44 @@
+name: Goose Language CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install aardappel/goose compiler
+        run: |
+          mkdir -p "$HOME/tools/gooselang" "$HOME/.local/bin"
+          URL=$(curl -fsSL https://api.github.com/repos/aardappel/goose/releases/latest \
+            | grep -o 'https://[^"]*linux-x64\.tar\.gz' | head -n 1)
+          curl -fL "$URL" -o /tmp/goose-linux-x64.tar.gz
+          tar xzf /tmp/goose-linux-x64.tar.gz -C "$HOME/tools/gooselang"
+          GOOSE_BIN=$(find "$HOME/tools/gooselang" -type f -name goose | head -n 1)
+          chmod +x "$GOOSE_BIN"
+          printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$GOOSE_BIN" > "$HOME/.local/bin/goose"
+          chmod +x "$HOME/.local/bin/goose"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Check formatting and types
+        run: |
+          goose format --check hello.goose
+          goose check hello.goose
+
+      - name: Build native executable
+        run: goose build hello.goose
+
+      - name: Run binary
+        run: ./hello
+
+      - name: Upload compiled binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: hello-linux-x64
+          path: hello

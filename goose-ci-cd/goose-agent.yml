@@ -1,0 +1,41 @@
+name: Goose AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ai-review:
+    runs-on: ubuntu-latest
+    env:
+      GOOSE_PROVIDER: openai
+      GOOSE_MODEL: gpt-4o
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GOOSE_MODE: auto
+      GOOSE_DISABLE_SESSION_NAMING: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Goose CLI
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh \
+            | GOOSE_VERSION=1.57.0 CONFIGURE=false GOOSE_BIN_DIR="$HOME/.local/bin" bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run headless code review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > pr.diff
+          goose run --no-session -t "Review pr.diff for bugs, memory safety issues, and missing edge cases. Output a concise Markdown bullet list." > review.md
+          gh pr comment "$PR_NUMBER" --body-file review.md

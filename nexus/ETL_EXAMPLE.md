@@ -224,3 +224,182 @@ examples/
 5. **Monitoring**: Each node tracks status, duration, and results independently
 
 This ETL example demonstrates how the multi-agent graph system can handle real-world data processing workflows with complex dependencies and parallel execution.
+-----------------------------------------------------
+Running ETL pipeline...
+
+
+
+=== DAG Structure ===
+
+Nodes: 8
+
+Edges: 7
+
+
+
+Nodes:
+
+- db1_extract (Database 1 Extract) [database_extractor]
+
+- db2_extract (Database 2 Extract) [database_extractor]
+
+- db3_extract (Database 3 Extract) [database_extractor]
+
+- db1_validate (Database 1 Validate) [data_validator]
+
+- db2_validate (Database 2 Validate) [data_validator]
+
+- db3_validate (Database 3 Validate) [data_validator]
+
+- merge (Merge Data) [data_merger]
+
+- warehouse_load (Load to Warehouse) [warehouse_loader]
+
+
+
+Edges:
+
+- db1_extract -> db1_validate (weight: 1.0)
+
+- db2_extract -> db2_validate (weight: 1.0)
+
+- db3_extract -> db3_validate (weight: 1.0)
+
+- db1_validate -> merge (weight: 1.0)
+
+- db2_validate -> merge (weight: 1.0)
+
+- db3_validate -> merge (weight: 1.0)
+
+- merge -> warehouse_load (weight: 1.0)
+
+
+
+Root Nodes:
+
+- db1_extract
+
+- db2_extract
+
+- db3_extract
+
+
+
+Leaf Nodes:
+
+- warehouse_load
+
+
+
+Topological Order:
+
+1. db1_extract
+
+2. db2_extract
+
+3. db3_extract
+
+4. db1_validate
+
+5. db2_validate
+
+6. db3_validate
+
+7. merge
+
+8. warehouse_load
+
+====================
+
+2026/11/24 17:08:33 Starting parallel workflow execution with 8 nodes
+
+2026/11/24 17:08:33 Executing node: db3_extract (Database 3 Extract)
+
+2026/11/24 17:08:33 Executing node: db1_extract (Database 1 Extract)
+
+2026/11/24 17:08:33 Executing node: db2_extract (Database 2 Extract)
+
+2026/11/24 17:08:33 Node db2_extract completed successfully
+
+2026/11/24 17:08:33 Node db1_extract completed successfully
+
+2026/11/24 17:08:33 Node db3_extract completed successfully
+
+2026/11/24 17:08:33 Executing node: db1_validate (Database 1 Validate)
+
+2026/11/24 17:08:33 Executing node: db2_validate (Database 2 Validate)
+
+2026/11/24 17:08:33 Executing node: db3_validate (Database 3 Validate)
+
+2026/11/24 17:08:33 Node db3_validate completed successfully
+
+2026/11/24 17:08:33 Node db2_validate completed successfully
+
+2026/11/24 17:08:33 Node db1_validate completed successfully
+
+2026/11/24 17:08:33 Executing node: merge (Merge Data)
+
+2026/11/24 17:08:33 Node merge completed successfully
+
+2026/11/24 17:08:33 Executing node: warehouse_load (Load to Warehouse)
+
+2026/11/24 17:08:33 Node warehouse_load completed successfully
+
+2026/11/24 17:08:33 Parallel workflow execution completed
+
+
+
+=== ETL Pipeline Results ===
+
+Database Extraction:
+
+DB1: 10 records from DB1
+
+DB2: 10 records from DB2
+
+DB3: 10 records from DB3
+
+
+
+Validation:
+
+DB1: 10 valid records, 0 issues
+
+DB2: 10 valid records, 0 issues
+
+DB3: 10 valid records, 0 issues
+
+
+
+Merge: 30 total records from 3 sources
+
+Sources: [DB1 DB2 DB3]
+
+
+
+Warehouse Load: SUCCESS
+
+Rows loaded: 30
+
+Load time: 50.25319ms
+
+Explain
+
+An 8-node, 7-edge parallel ETL pipeline extracted 30 records across three databases, validated them with zero errors, merged the datasets, and loaded all 30 rows into the data warehouse within 17:08:33 on November 24, 2026.
+
+Pipeline Execution Breakdown
+The workflow progressed through four sequential dependency stages:
+
+Stage	Node(s)	Execution Mode	Outcome
+1. Extract	db1_extract, db2_extract, db3_extract	Parallel (3 root nodes)	Pulled 10 records from each source database (30 total)
+2. Validate	db1_validate, db2_validate, db3_validate	Parallel (per-source branch)	Verified all 30 records (10 valid, 0 issues per database)
+3. Merge	merge	Single synchronization barrier	Combined the three validated streams into 30 unified records
+4. Load	warehouse_load	Single leaf node	Wrote all 30 rows to the warehouse in 50.25 ms (SUCCESS)
+Key Execution Characteristics
+Fan-in DAG topology: Each database has an isolated extract-and-validate branch (dbX_extract → dbX_validate) so slow or failing reads on one source do not block validation on the others. All three branches converge at merge, which acts as a dependency barrier before warehouse_load can start.
+
+Non-deterministic parallel scheduling: Although the static topological sort lists db1, db2, then db3, the runtime logs show the extractors started as db3 → db1 → db2 and finished as db2 → db1 → db3. This confirms true concurrent worker execution rather than sequential playback.
+
+100% record reconciliation: Unlike the earlier CI/CD run, this execution completed with no warnings or data loss—all 30 extracted records passed validation, survived the merge, and landed in the target warehouse.
+
+
