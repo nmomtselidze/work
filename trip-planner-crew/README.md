@@ -9,30 +9,27 @@ uv --version
 
 # Add your dependencies
 uv add crewai langchain langchain-google-genai google-generativeai python-dotenv litellm unstructured
+uv sync --upgrade-package crewai
 
 # Run your script run Чтобы запустить проект c uv достаточно выполнить:
-uv run python src/trip_planner/main.py
+uv run python src/trip_planner_crew/main.py
 
 create requirements.txt: crewai langchain langchain-google-genai google-generativeai python-dotenv litellm unstructured
 
-
-uv venv --clear --force
-
-uv add -r requirements.txt
-uv pip check
-export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/trip-planner-crew"
-uv pip uninstall -r requirements.txt
-
-export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/trip-planner-crew"
-uv sync --python 3.13
+----------------------------------------------
+cd /media/user/dsk64/monowork/trip-planner-crew
+uv python pin 3.13
+source ~/.bashrc
+uv add --python 3.13 -r requirements.txt
+rm -rf /media/user/dsk64/monowork/trip-planner-crew/.venv
 uv run python src/trip_planner_crew/main.py
 
-//Need this module versions pip install crewai litellm==0.1.351 openai langchain==0.0.335 langsmith==0.0.63 python-dotenv unstructured pip install langchain langchain_community langsmith python-dotenv crewai litellm openai crewai_tools unstructured
+rm -rf /media/user/dsk64/monowork/.venv /media/user/dsk64/monowork/trip-planner-crew/.venv
+export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/trip-planner-crew"
+uv venv --clear --python 3.13
 
-//In requirenment openai==0.28.1 crewai==0.1.5 langchain==0.0.335 litellm==0.14.1 python-dotenv unstructured
-alexis.k@cybx.io
-https://google.github.io/adk-docs/get-started/quickstart/
-=================================================================================================================================================================
+
+=========================================================================================================================================
 
 Welcome to Trip Planner Crew
 From where will you be traveling from? Tbilisi What are the cities options you are interested in visiting? Madrid What is the date range you are interested in traveling? 1.09.2026 What are some of your high level interests and hobbies? Study in Madrid universiti

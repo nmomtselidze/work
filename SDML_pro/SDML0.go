@@ -10,164 +10,116 @@ import (
 	"time"
 )
 
-// HuggingFaceAPIRequest represents the request structure for HF Inference API
-type HuggingFaceAPIRequest struct {
-	Inputs     string                 `json:"inputs"`
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
-}
-
-// HuggingFaceAPIResponse represents the response from HF Inference API
-type HuggingFaceAPIResponse []struct {
-	GeneratedText string `json:"generated_text"`
-}
-
-// Message represents a chat message
+// OpenAI-compatible request structures for Hugging Face Router
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
+type ChatRequest struct {
+	Model       string    `json:"model"`
+	Messages    []Message `json:"messages"`
+	MaxTokens   int       `json:"max_tokens,omitempty"`
+	Temperature float64   `json:"temperature,omitempty"`
+}
+
+// OpenAI-compatible response structures
+type ChatChoice struct {
+	Message Message `json:"message"`
+}
+
+type ChatResponse struct {
+	Choices []ChatChoice `json:"choices"`
+	Error   *struct {
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
+}
+
 func main() {
-	// Open output file
-	outputFile, err := os.Create("SDML0_output.txt")
-	if err != nil {
-		fmt.Printf("Error creating output file: %v\n", err)
-		return
-	}
-	defer outputFile.Close()
-
-	// Model configuration
+	apiURL := "https://router.huggingface.co/v1/chat/completions"
 	modelID := "HuggingFaceTB/SmolLM2-1.7B-Instruct"
-	apiURL := fmt.Sprintf("https://api-inference.huggingface.co/models/%s", modelID)
 
-	// Symptom prompt
-	symptoms := "I have a high fever, dry cough, and severe fatigue."
-	messages := []Message{
-		{Role: "system", Content: "You are a medical AI assistant. Analyze the symptoms and identify the single most likely condition with the highest probability."},
-		{Role: "user", Content: symptoms},
+	// Supports HF_TOKEN (standard) or HUGGINGFACE_API_KEY
+	apiKey := os.Getenv("HF_TOKEN")
+	if apiKey == "" {
+		apiKey = os.Getenv("HUGGINGFACE_API_KEY")
 	}
 
-	// Create prompt with chat template
-	prompt := formatChatTemplate(messages)
+	systemPrompt := "You are a medical AI assistant. Analyze the symptoms and identify the single most likely condition with the highest probability."
+	userPrompt := "I have a high fever, dry cough, and severe fatigue."
 
-	// Prepare request
-	requestBody := HuggingFaceAPIRequest{
-		Inputs: prompt,
-		Parameters: map[string]interface{}{
-			"max_new_tokens": 200,
-			"temperature":    0.2,
-			"do_sample":      true,
+	reqPayload := ChatRequest{
+		Model: modelID,
+		Messages: []Message{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
 		},
+		MaxTokens:   300,
+		Temperature: 0.3,
 	}
 
-	// Convert to JSON
-	jsonData, err := json.Marshal(requestBody)
+	jsonData, err := json.Marshal(reqPayload)
 	if err != nil {
-		fmt.Printf("Error marshaling JSON: %v\n", err)
-		outputFile.WriteString(fmt.Sprintf("Error marshaling JSON: %v\n", err))
+		fmt.Printf("Error marshaling request: %v\n", err)
+		printFallback(systemPrompt, userPrompt)
 		return
-	}
-
-	// Create HTTP request with timeout
-	client := &http.Client{
-		Timeout: 60 * time.Second,
 	}
 
 	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Printf("Error creating request: %v\n", err)
-		outputFile.WriteString(fmt.Sprintf("Error creating request: %v\n", err))
+		printFallback(systemPrompt, userPrompt)
 		return
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	// Note: You may need to set HF_TOKEN environment variable for authentication
-	// req.Header.Set("Authorization", "Bearer YOUR_HF_TOKEN")
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
 
-	// Send request
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Error sending request: %v\n", err)
-		fmt.Print(errorMsg)
-		outputFile.WriteString(errorMsg)
-		printFallbackResponse(symptoms, outputFile)
+		fmt.Printf("Error sending request: %v\n", err)
+		printFallback(systemPrompt, userPrompt)
 		return
 	}
 	defer resp.Body.Close()
 
-	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Error reading response: %v\n", err)
-		fmt.Print(errorMsg)
-		outputFile.WriteString(errorMsg)
-		printFallbackResponse(symptoms, outputFile)
+		fmt.Printf("Error reading response: %v\n", err)
+		printFallback(systemPrompt, userPrompt)
 		return
 	}
 
-	// Check status code
 	if resp.StatusCode != http.StatusOK {
-		errorMsg := fmt.Sprintf("API returned status %d: %s\n", resp.StatusCode, string(body))
-		fmt.Print(errorMsg)
-		outputFile.WriteString(errorMsg)
-		printFallbackResponse(symptoms, outputFile)
+		fmt.Printf("API returned status %d: %s\n", resp.StatusCode, string(body))
+		printFallback(systemPrompt, userPrompt)
 		return
 	}
 
-	// Parse response
-	var apiResponse HuggingFaceAPIResponse
-	err = json.Unmarshal(body, &apiResponse)
-	if err != nil {
-		errorMsg := fmt.Sprintf("Error parsing response: %v\n", err)
-		fmt.Print(errorMsg)
-		outputFile.WriteString(errorMsg)
-		printFallbackResponse(symptoms, outputFile)
+	var chatResp ChatResponse
+	if err := json.Unmarshal(body, &chatResp); err != nil {
+		fmt.Printf("Error parsing JSON response: %v\n", err)
+		printFallback(systemPrompt, userPrompt)
 		return
 	}
 
-	// Print generated text
-	if len(apiResponse) > 0 {
-		responseText := apiResponse[0].GeneratedText
-		fmt.Println(responseText)
-		outputFile.WriteString(responseText + "\n")
-	} else {
-		errorMsg := "No response generated\n"
-		fmt.Print(errorMsg)
-		outputFile.WriteString(errorMsg)
-		printFallbackResponse(symptoms, outputFile)
+	if len(chatResp.Choices) == 0 {
+		fmt.Println("No choices returned in API response.")
+		printFallback(systemPrompt, userPrompt)
+		return
 	}
 
-	fmt.Println("\nOutput saved to SDML0_output.txt")
+	fmt.Println("--- Hugging Face Router Response ---")
+	fmt.Println(chatResp.Choices[0].Message.Content)
 }
 
-// formatChatTemplate creates a chat template similar to tokenizer.apply_chat_template
-func formatChatTemplate(messages []Message) string {
-	var template string
-	for _, msg := range messages {
-		template += fmt.Sprintf("<|im_start|>%s\n%s<|im_end|>\n", msg.Role, msg.Content)
-	}
-	template += "<|im_start|>assistant\n"
-	return template
-}
-
-// printFallbackResponse provides a mock response for demonstration
-func printFallbackResponse(symptoms string, outputFile *os.File) {
-	fallbackResponse := `
-
---- Demo Mode: Fallback Response ---
-<|im_start|>system
-You are a medical AI assistant. Analyze the symptoms and identify the single most likely condition with the highest probability.
-<|im_end|>
-<|im_start|>user
-` + symptoms + `
-<|im_end|>
-<|im_start|>assistant
-Based on the symptoms you've provided, the most likely condition is:
-
-Influenza (Flu): This is a viral infection that causes symptoms like fever, cough, and fatigue. It's highly contagious and can spread quickly, especially during flu season. The combination of high fever, dry cough, and severe fatigue strongly suggests influenza as the primary diagnosis.
-
-Please remember that this is just a potential condition and it's important to consult with a healthcare professional for a proper diagnosis.
-`
-	fmt.Print(fallbackResponse)
-	outputFile.WriteString(fallbackResponse)
+func printFallback(systemPrompt, userPrompt string) {
+	fmt.Printf("\n\n--- Demo Mode: Fallback Response ---\n")
+	fmt.Printf("<|im_start|>system\n%s\n<|im_end|>\n", systemPrompt)
+	fmt.Printf("<|im_start|>user\n%s\n<|im_end|>\n", userPrompt)
+	fmt.Println("<|im_start|>assistant")
+	fmt.Println("Based on the symptoms you've provided, the most likely condition is:\n\nInfluenza (Flu): This is a viral infection that causes symptoms like fever, cough, and fatigue. It's highly contagious and can spread quickly, especially during flu season. The combination of high fever, dry cough, and severe fatigue strongly suggests influenza as the primary diagnosis.\n\nPlease remember that this is just a potential condition and it's important to consult with a healthcare professional for a proper diagnosis.")
 }

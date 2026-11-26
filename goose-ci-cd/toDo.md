@@ -52,4 +52,6 @@ source ~/.bashrc
 ls -lah /usr/lib/goose/
 goose
 2.5 Prompt for Goose
-
+----------------------------------------
+//Gemimi Goose App Sucsess
+https://gemini.google.com/app/c02da3be11cbe779?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all

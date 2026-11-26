@@ -1,4 +1,4 @@
-Explain me what are input data, what was done and what was output?
+Explain what are input data, what was done and what was output?
 
 1. Data Processing Pipelines
 

@@ -1,4 +1,4 @@
-https://github.com/nmomtselidze/monowork/
+https://github.com/nmomtselidze/work/
 I've created a complete multi-agent Go project with graph engineering using Directed Acyclic Graphs (DAGs). Here's what was built:
 
 ## Project Structure

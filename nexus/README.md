@@ -64,6 +64,12 @@ make run-etl
 make run-cicd
 make run-book-flight
 
+make test
+make test-coverage
+make test-coverage-short
+make test-unit
+
+
 # Or run all
 make run-all 
 ```
